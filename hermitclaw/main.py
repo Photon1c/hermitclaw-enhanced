@@ -6,6 +6,10 @@ import logging
 import os
 import shutil
 import sys
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv()
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -89,10 +93,10 @@ if __name__ == "__main__":
 
     names = [b.identity["name"] for b in brains.values()]
     print(f"\n  Starting {len(brains)} crab(s): {', '.join(names)}")
-    print(f"  Open http://localhost:8000 to watch them think\n")
+    print(f"  Open http://localhost:8003 to watch them think\n")
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8000,
+        port=8003,
         log_level="info",
     )

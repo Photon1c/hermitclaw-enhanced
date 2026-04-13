@@ -6,6 +6,10 @@ node_modules/
 frontend/dist/
 hermitclaw.log.jsonl
 .DS_Store
+config.yaml
+hermitclaw.egg-info/
+frontend/package-lock.json
+hercule_archive/
 
 # Agent-generated content (unique to each crab)
 *_box/
