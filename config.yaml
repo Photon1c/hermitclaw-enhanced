@@ -11,8 +11,7 @@ max_thoughts_in_context: 2     # minimal rolling window
 # Memory stream settings - tuned for archival focus
 reflection_threshold: 30       # reflect more often (catch important stuff)
 memory_retrieval_count: 5     # retrieve more context per query
-embedding_model: "nomic-embed-text"
+embedding_model: "nomic-embed-text"  # Ollama embedding model
 recency_decay_rate: 0.99     # slower decay for long-term memory
 
-# environment_path is auto-detected from *_box/ directories
-# Uncomment to override: environment_path: "./mybox"
+# environment_path is auto-detected from *_box/ directories at runtime
