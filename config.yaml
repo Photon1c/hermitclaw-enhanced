@@ -4,14 +4,14 @@ model: "granite4:350m"
 api_key: "ollama"                # placeholder - Ollama doesn't need auth
 base_url: "http://localhost:11434/v1"  # Ollama OpenAI-compatible endpoint
 
-# Janitor mode: slower pace for overnight, minimal context
-thinking_pace_seconds: 120       # 2 min between thoughts (overnight suitable)
-max_thoughts_in_context: 2     # minimal rolling window
+# Janitor mode: 15min reflection cycle for deeper thinking
+thinking_pace_seconds: 900       # 15 min between thoughts (consolidation)
+max_thoughts_in_context: 6     # more context for deeper thinking
 
 # Memory stream settings - tuned for archival focus
-reflection_threshold: 30       # reflect more often (catch important stuff)
-memory_retrieval_count: 5     # retrieve more context per query
+reflection_threshold: 20       # reflect sooner with richer context
+memory_retrieval_count: 8     # retrieve more context per query
 embedding_model: "nomic-embed-text"  # Ollama embedding model
-recency_decay_rate: 0.99     # slower decay for long-term memory
+recency_decay_rate: 0.995     # slower decay for long-term memory
 
 # environment_path is auto-detected from *_box/ directories at runtime
