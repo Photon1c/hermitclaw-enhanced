@@ -1,17 +1,18 @@
 # HermitClaw Configuration
 provider: "custom"              # "openai" | "openrouter" | "custom"
-model: "gemma4:31b-cloud"
+model: "granite4:350m"
 api_key: "ollama"                # placeholder - Ollama doesn't need auth
 base_url: "http://localhost:11434/v1"  # Ollama OpenAI-compatible endpoint
 
-thinking_pace_seconds: 5       # how often it thinks (steady pulse)
-max_thoughts_in_context: 4     # rolling window of recent thoughts
+# Janitor mode: slower pace for overnight, minimal context
+thinking_pace_seconds: 120       # 2 min between thoughts (overnight suitable)
+max_thoughts_in_context: 2     # minimal rolling window
 
-# Memory stream settings
-reflection_threshold: 50       # accumulated importance before reflecting
-memory_retrieval_count: 3    # how many memories to retrieve per query
-embedding_model: "nomic-embed-text"  # for Ollama use: nomic-embed-text
-recency_decay_rate: 0.995     # exponential decay rate for recency scoring
+# Memory stream settings - tuned for archival focus
+reflection_threshold: 30       # reflect more often (catch important stuff)
+memory_retrieval_count: 5     # retrieve more context per query
+embedding_model: "nomic-embed-text"
+recency_decay_rate: 0.99     # slower decay for long-term memory
 
 # environment_path is auto-detected from *_box/ directories
 # Uncomment to override: environment_path: "./mybox"

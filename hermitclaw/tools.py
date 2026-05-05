@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import urllib.request
+from datetime import datetime
 from urllib.error import URLError
 from urllib.parse import urlparse
 
@@ -199,7 +200,7 @@ def _rewrite_pip_cmd(command: str, env_root: str) -> str | None:
         return f"{shlex.quote(uv)} pip {rest} --python {shlex.quote(_venv_python(env_root))}"
     if stripped.startswith("pip install") or stripped.startswith("pip3 install"):
         # Use venv pip
-        return f"{shlex.quote(_venv_python(env_root))} -m pip {stripped[stripped.index('install'):]}"
+        return f"{shlex.quote(_venv_python(env_root))} -m pip {stripped[stripped.index('install') :]}"
     return None
 
 
@@ -354,6 +355,186 @@ def fetch_url(url: str, max_chars: int = 12000, timeout: int = 15) -> str:
         return f"Error: {e}"
 
 
+def _resolveObservePath(path: str) -> str:
+    """Resolve a path that may use ~ or be relative to home."""
+    path = path.strip()
+    # Resolve ~ to home directory
+    if path.startswith("~"):
+        home = os.path.expanduser("~")
+        if path == "~":
+            return home
+        return os.path.join(home, path[2:].lstrip("/"))
+    # If it's already an absolute path, validate it's under home
+    if os.path.isabs(path):
+        home = os.path.expanduser("~")
+        if not path.startswith(home):
+            return home  # Fallback to home if outside
+        return path
+    # Relative path - reject for safety (must use ~ or absolute)
+    return ""
+
+
+def _getDirectoryTree(path: str, max_depth: int = 3, max_items: int = 50) -> str:
+    """Get a directory tree structure (read-only)."""
+    import os
+
+    home = os.path.expanduser("~")
+    resolved = _resolveObservePath(path)
+    if not resolved or not os.path.isdir(resolved):
+        return f"Error: Cannot access {path} - invalid or inaccessible path"
+
+    # Security: ensure resolved path is under home
+    if not resolved.startswith(home):
+        return f"Error: Access denied - {path} is outside allowed area"
+
+    lines = []
+    try:
+        entries = sorted(
+            os.listdir(resolved),
+            key=lambda x: (not os.path.isdir(os.path.join(resolved, x)), x),
+        )
+        for i, entry in enumerate(entries[:max_items]):
+            if i >= max_items:
+                lines.append(f"... and {len(entries) - max_items} more items")
+                break
+            entry_path = os.path.join(resolved, entry)
+            if os.path.isdir(entry_path):
+                # Count items in directory
+                try:
+                    subcount = len(os.listdir(entry_path))
+                    lines.append(f"📁 {entry}/ ({subcount} items)")
+                except:
+                    lines.append(f"📁 {entry}/")
+            else:
+                size = os.path.getsize(entry_path)
+                if size > 1024 * 1024:
+                    size_str = f"{size / (1024 * 1024):.1f}MB"
+                elif size > 1024:
+                    size_str = f"{size / 1024:.1f}KB"
+                else:
+                    size_str = f"{size}B"
+                lines.append(f"📄 {entry} ({size_str})")
+    except PermissionError:
+        return f"Error: Permission denied for {path}"
+    except Exception as e:
+        return f"Error: {e}"
+
+    return "\n".join(lines) if lines else "(empty)"
+
+
+def _readFileContent(path: str, max_chars: int = 5000) -> str:
+    """Read a file's content (read-only)."""
+    home = os.path.expanduser("~")
+    resolved = _resolveObservePath(path)
+    if not resolved or not os.path.isfile(resolved):
+        return f"Error: Cannot read {path} - invalid or not a file"
+
+    # Security: ensure resolved path is under home
+    if not resolved.startswith(home):
+        return f"Error: Access denied - {path} is outside allowed area"
+
+    try:
+        with open(resolved, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read(max_chars + 1000)
+        if len(content) > max_chars:
+            content = content[:max_chars] + f"\n...(truncated at {max_chars} chars)"
+        return content
+    except PermissionError:
+        return f"Error: Permission denied"
+    except Exception as e:
+        return f"Error reading file: {e}"
+
+
+def observe(path: str, mode: str = "tree", max_items: int = 50) -> str:
+    """Observe a directory outside the sandbox (read-only).
+
+    Args:
+        path: Path to observe (supports ~ and relative to home)
+        mode: "tree" (directory listing), "read" (read files), "report" (generate summary)
+        max_items: Max items to show in tree mode
+
+    Examples:
+        observe("~/apps") - list what's in ~/apps
+        observe("~/apps/pixelworld", mode="tree") - tree view of pixelworld
+        observe("~/notes", mode="report") - generate a summary report
+    """
+    home = os.path.expanduser("~")
+    resolved = _resolveObservePath(path)
+
+    if not resolved:
+        return "Error: Invalid path. Use ~/path or absolute path under home."
+
+    if not resolved.startswith(home):
+        return f"Error: Access denied. Only paths under ~ are allowed."
+
+    if mode == "report":
+        # Generate a summary report
+        if not os.path.isdir(resolved):
+            return f"Error: {path} is not a directory"
+        report_lines = [f"# Observation Report: {path}", ""]
+        report_lines.append(f"**Path:** {resolved}")
+        report_lines.append(f"**Scanned:** {datetime.now().isoformat()}", "")
+
+        try:
+            entries = os.listdir(resolved)
+            dirs = [e for e in entries if os.path.isdir(os.path.join(resolved, e))]
+            files = [e for e in entries if os.path.isfile(os.path.join(resolved, e))]
+
+            report_lines.append(
+                f"**Summary:** {len(dirs)} directories, {len(files)} files"
+            )
+            report_lines.append("")
+
+            if dirs:
+                report_lines.append("## Directories")
+                for d in sorted(dirs)[:20]:
+                    subpath = os.path.join(resolved, d)
+                    try:
+                        subcount = len(os.listdir(subpath))
+                        report_lines.append(f"- 📁 {d}/ ({subcount} items)")
+                    except:
+                        report_lines.append(f"- 📁 {d}/")
+                if len(dirs) > 20:
+                    report_lines.append(f"... and {len(dirs) - 20} more")
+
+            if files:
+                report_lines.append("")
+                report_lines.append("## Files")
+                for f in sorted(files)[:20]:
+                    fpath = os.path.join(resolved, f)
+                    try:
+                        size = os.path.getsize(fpath)
+                        if size > 1024 * 1024:
+                            size_str = f"{size / (1024 * 1024):.1f}MB"
+                        elif size > 1024:
+                            size_str = f"{size / 1024:.1f}KB"
+                        else:
+                            size_str = f"{size}B"
+                        report_lines.append(f"- 📄 {f} ({size_str})")
+                    except:
+                        report_lines.append(f"- 📄 {f}")
+                if len(files) > 20:
+                    report_lines.append(f"... and {len(files) - 20} more")
+
+        except Exception as e:
+            report_lines.append(f"Error scanning: {e}")
+
+        return "\n".join(report_lines)
+
+    elif mode == "read":
+        # Read file content
+        if os.path.isfile(resolved):
+            return _readFileContent(resolved)
+        elif os.path.isdir(resolved):
+            # If it's a dir, show tree instead
+            return _getDirectoryTree(resolved, max_items=max_items)
+        else:
+            return f"Error: {path} not found"
+
+    else:  # tree mode
+        return _getDirectoryTree(resolved, max_items=max_items)
+
+
 def execute_tool(name: str, arguments: dict, env_root: str) -> str:
     """Run a tool by name."""
     if name == "shell":
@@ -367,5 +548,11 @@ def execute_tool(name: str, arguments: dict, env_root: str) -> str:
         )
     elif name == "web_fetch":
         return ollama_web_fetch(arguments.get("url", ""))
+    elif name == "observe":
+        return observe(
+            arguments.get("path", ""),
+            arguments.get("mode", "tree"),
+            arguments.get("max_items", 50),
+        )
     else:
         return f"Unknown tool: {name}"

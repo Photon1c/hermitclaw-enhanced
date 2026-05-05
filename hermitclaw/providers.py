@@ -95,6 +95,39 @@ TOOLS = [
     },
     {
         "type": "function",
+        "name": "observe",
+        "description": (
+            "Observe a directory outside your sandbox. Read-only access to scan directories "
+            "and read files anywhere under your owner's home folder (~). Use this to: "
+            "- List directories ('tree' mode): observe('~/apps') shows what's there "
+            "- Read files: observe('~/notes/todo.txt', mode='read') reads a file "
+            "- Generate summary report: observe('~/projects', mode='report') creates an overview "
+            "Security: You can ONLY observe paths under ~ (your owner's home). "
+            "This is perfect for overnight janitor work — scan ~/apps for issues, "
+            "read logs, check project structures, and report back."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path to observe (use ~ or absolute path, e.g. ~/apps, ~/projects/myapp)",
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["tree", "read", "report"],
+                    "description": "Mode: 'tree' (directory listing), 'read' (read files), 'report' (summary)",
+                },
+                "max_items": {
+                    "type": "integer",
+                    "description": "Max items to show in tree mode (default 50)",
+                },
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "type": "function",
         "name": "move",
         "description": (
             "Move to a location in your room. Use this to go where feels natural "
